@@ -1,88 +1,64 @@
 import aiohttp
 import asyncio
 import json
+from typing import List, Dict, Union, Optional, Any
+from events import Guild, Msg, User, Dm
 
 ENDPOINT_URL = "localhost:8080/api"
 
+JSON_CONTENT = "application/json"
+FORM_CONTENT = "application/x-www-form-urlencoded"
+
+
+class Tasks:
+    def __init__(self):
+        self._tasks: List[asyncio.Task] = set()
+
+    def create_task(self, coro, *, name):
+        task = asyncio.create_task(coro, name=name)
+        # i honestly cannot believe that exceptions are not raised in async tasks
+        # wtf
+
+        def task_finish(task):
+            self._tasks.remove(task)
+            if task.exception() is not None:
+                raise task.exception()
+        task.add_done_callback(task_finish)
+        self._tasks.add(task)
+
 
 class Controller:
-    def event(self, func):
-        print(self)
-        print(type(self))
-        if not asyncio.iscoroutinefunction(func):
+    def event(self, coro):
+        name = "on_"+coro.__name__
+        if not asyncio.iscoroutinefunction(coro):
             raise TypeError("Event must be a coroutine function")
-        if not hasattr(self, func.__name__):
+        if not hasattr(self, name):
             raise AttributeError("Event not found")
-        setattr(self, func.__name__, func)
-        return func
+        # coro.__get__ required for calling it as a method
+        # otherwise it calls a regular function
+        setattr(self, name, coro.__get__(self))
+        return coro
+
     async def _process_event(self, data, event):
-        match event: #can be shorten significantly by using __name__ getattr
-            case "CREATE_GUILD":
-                await self.on_create_guild(data)
-            case "DELETE_GUILD":
-                await self.on_delete_guild(data)
-            case "UPDATE_GUILD":
-                await self.on_update_guild(data)
-            case "NOT_OWNER":
-                await self.on_not_owner(data)
-            case "NEW_OWNER":
-                await self.on_new_owner(data)
-            case "CREATE_INVITE":
-                await self.on_create_invite(data)
-            case "DELETE_INVITE":
-                await self.on_delete_invite(data)
-            case "CREATE_GUILD_MESSAGE":
-                await self.on_create_guild_message(data)
-            case "DELETE_GUILD_MESSAGE":
-                await self.on_delete_guild_message(data)
-            case "UPDATE_GUILD_MESSAGE":
-                await self.on_update_guild_message(data)
-            case "CREATE_DM":
-                await self.on_create_dm(data)
-            case "DELETE_DM":
-                await self.on_delete_dm(data)
-            case "CREATE_DM_MESSAGE":
-                await self.on_create_dm_message(data)
-            case "DELETE_DM_MESSAGE":
-                await self.on_delete_dm_message(data)
-            case "UPDATE_DM_MESSAGE":
-                await self.on_update_dm_message(data)
-            case "CLEAR_USER_DM_MESSAGES":
-                await self.on_clear_user_dm_messages(data)
-            case "USER_DM_TYPING":
-                await self.on_user_dm_typing(data)
-            case "ADD_FRIEND_REQUEST":
-                await self.on_add_friend_request(data)
-            case "REMOVE_FRIEND_REQUEST":
-                await self.on_remove_friend_request(data)
-            case "ADD_USER_FRIENDLIST":
-                await self.on_add_user_friendlist(data)
-            case "REMOVE_USER_FRIENDLIST":
-                await self.on_remove_user_friendlist(data)
-            case "CLEAR_USER_MESSAGES":
-                await self.on_clear_user_messages(data)
-            case "CLEAR_GUILD_MESSAGES":
-                await self.on_clear_guild_messages(data)
-            case "USER_TYPING":
-                await self.on_user_typing(data)
-            case "ADD_USER_GUILDLIST":
-                await self.on_add_user_guildlist(data)
-            case "REMOVE_USER_GUILDLIST":
-                await self.on_remove_user_guildlist(data)
-            case "ADD_USER_BANLIST":
-                await self.on_add_user_banlist(data)
-            case "REMOVE_USER_BANLIST":
-                await self.on_remove_user_banlist(data)
-            case "ADD_USER_GUILDADMIN":
-                await self.on_add_user_guildadmin(data)
-            case "REMOVE_USER_GUILDADMIN":
-                await self.on_remove_user_guildadmin(data)
-            case "LOG_OUT":
-                await self.on_log_out(data)
-            case "UPDATE_USER_INFO":
-                await self.on_update_user_info(data)
-            case "UPDATE_SELF_USER_INFO":
-                await self.on_update_self_user_info(data)
+        name = "on_"+event.lower()
+        data_type = event.lower().split("_")[-1]
+        match data_type:
+            case "guild":
+                data = Guild(**data)
+            case "dm":
+                data = Dm(**data)
+            case "message":
+                data = Msg(**data)
+            case "user":
+                data = User(**data)
+            case _:
+                print(f"Unknown event type {data_type}")
+        try:
+            coro = getattr(self, name)
+        except AttributeError:
+            print(f"Unidentified event: {event}")
+        else:
+            self.tasks.create_task(coro(data), name=name)
 
     async def on_ready(self) -> None:
         """
@@ -218,18 +194,48 @@ class Controller:
 
 
 class Caller:
-    def __init__(self) -> None:
+    def __init__(self, token: str) -> None:
+        self.token = token
         self.session = aiohttp.ClientSession()
 
-    async def send_message(self, guild_id: str, message: str) -> None:
+    async def _request(self, request_type: str, route: str, /, *, data: Optional[Dict] = None, content_type: str = JSON_CONTENT) -> Any:
+        url = f"http://{ENDPOINT_URL}{route}"
+        headers = {
+            "authorization": self.token,
+            "content-type": content_type
+        }
+        if data is not None:
+            data = json.dumps(data)
+        async with self.session.request(request_type, url, headers=headers,
+                                        data=data if request_type != "GET" else None,
+                                        params=data if request_type == "GET" else None
+                                        ) as response:
+            response.raise_for_status()
+            if request_type == "GET":
+                return await response.json()
+
+    async def get_guilds(self) -> List[Dict[str, Union[str, Dict]]]:
+        return await self._request("GET", "/users/@me/guilds")
+
+    async def get_messages(self, guild_id: str, time: int, limit: int) -> List[Dict[str, Union[str, Dict]]]:
+        send_data = {
+            "time": str(time) if time != 0 else "",
+            "limit": str(limit)
+        }
+        return await self._request("GET", f"/guilds/{guild_id}/msgs", data=send_data)
+
+    async def get_friends(self) -> List[Dict[str, str]]:
+        return await self._request("GET", "/users/@me/friends")
+
+    async def get_self(self) -> Dict[str, str]:
+        return await self._request("GET", "/users/@me")
+
+    async def get_user(self, user_id: str) -> Dict[str, str]:
+        return await self._request("GET", f"/users/{user_id}")
+
+    async def send_message(self, guild_id: str, message: str, /) -> None:
         send_data = {
             "content": message
         }
-        header = {
-            "authorization" : self.token
-        }
         print("sending msg")
-        async with self.session.post(f"http://{ENDPOINT_URL}/guilds/{guild_id}/msgs", data=json.dumps(send_data), headers=header) as response:
-            print("test")
-            print(response.status)
-            response.raise_for_status()
+        await self._request("POST", f"/guilds/{guild_id}/msgs", data=send_data)
