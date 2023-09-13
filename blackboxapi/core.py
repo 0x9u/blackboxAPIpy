@@ -1,7 +1,9 @@
 import asyncio
 import json
 from websockets.client import connect
+from traceback import print_exc
 from typing import Dict, Union, Optional, List
+
 
 from helpers import Controller, Caller, Tasks, ENDPOINT_URL
 from events import Guild, Dm, User, Msg
@@ -12,7 +14,6 @@ class Client(Controller):
         self.websocket = None
         self.loop = None
 
-        self.alive = False
         self.token = token
         self.heartbeat_interval = 0
         self.tasks = Tasks()
@@ -20,22 +21,29 @@ class Client(Controller):
         self.caller = Caller(token)
 
     def run(self) -> None:
+        self.caller._start_session()
         self.loop = asyncio.get_event_loop()
-        self.loop.run_until_complete(self._loop())
-
+        self.loop.set_debug(True)
+        # TODO: suppress cancelled error
+        try:
+            self.loop.run_until_complete(self._loop())
+        except asyncio.exceptions.CancelledError:
+            pass
     async def _loop(self) -> None:
-        self.websocket = await connect(f"ws://{ENDPOINT_URL}/ws/")
-        self.alive = True
-        while self.alive:
-            message = await self.websocket.recv()
-            print(message)
-            await self._process(message)
-        for task in self.tasks:
-            task.cancel()
-        asyncio.gather(*self.tasks, return_exceptions=True)
+        self.websocket = await connect(f"ws://{ENDPOINT_URL}/ws/", ping_interval=None)
+        while self.websocket.open:
+            try:
+                message = await self.websocket.recv()
+                print(message)
+                await self._process(message)
+            except Exception as e:
+                print("PRINTING ERROR")
+                print_exc() 
+        await self.tasks.stop_tasks()
+        await self.caller._stop_session()
 
     async def _ping_timer(self):
-        while self.alive:
+        while self.websocket.open:
             await asyncio.sleep((self.heartbeat_interval / 1000) // 4)
             ping_frame = {
                 "op": 0x9,
@@ -66,7 +74,6 @@ class Client(Controller):
                 self.tasks.create_task(self._ping_timer(), name="ping_timer")
                 self.tasks.create_task(self.on_ready(), name="on_ready")
             case 0x8:
-                self.alive = False
                 self.websocket.close()
             case 0xa:
                 pass  # add thing for heart beat ack later
@@ -133,3 +140,4 @@ if __name__ == "__main__":
 
 
     api.run()
+''

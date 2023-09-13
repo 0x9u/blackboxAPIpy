@@ -25,6 +25,10 @@ class Tasks:
                 raise task.exception()
         task.add_done_callback(task_finish)
         self._tasks.add(task)
+    async def stop_tasks(self):
+        for task in self._tasks:
+            task.cancel()
+        await asyncio.gather(*self._tasks, return_exceptions=True)
 
 
 class Controller:
@@ -196,7 +200,13 @@ class Controller:
 class Caller:
     def __init__(self, token: str) -> None:
         self.token = token
+        self.session = None
+    
+    def _start_session(self):
         self.session = aiohttp.ClientSession()
+    
+    async def _stop_session(self):
+        await self.session.close()
 
     async def _request(self, request_type: str, route: str, /, *, data: Optional[Dict] = None, content_type: str = JSON_CONTENT) -> Any:
         url = f"http://{ENDPOINT_URL}{route}"
