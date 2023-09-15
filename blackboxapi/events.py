@@ -49,21 +49,21 @@ class Msg:
 
 
 class Dm:
-    def __init__(self, id, name, unread):
+    def __init__(self, id, userInfo, unread):
         self.id = id
-        self.name = name
+        self.user_info = User(**userInfo)
         self.unread = UnreadMsg(**unread)
 
 
 class Guild:
-    def __init__(self, id, dm, name, imageId, ownerId, saveChat, unread):
+    def __init__(self, id, name, imageId, ownerId, dm=None, saveChat=None, unread=None):
         self.id = id
         self.dm = dm
         self.name = name
         self.image_id = imageId
         self.owner_id = ownerId
         self.save_chat = saveChat
-        self.unread = UnreadMsg(**unread)
+        self.unread = UnreadMsg(**unread) if unread is not None else None
 
 
 class Invite:

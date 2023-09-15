@@ -94,6 +94,10 @@ class Client(Controller):
         users = await self.caller.get_friends()
         return [User(**user) for user in users]
 
+    async def get_friend_requests(self) -> List[User]:
+        users = await self.caller.get_friend_requests()
+        return [User(**user) for user in users]
+
     async def get_messages(self, guild_id : str, time : int, limit : int, /) -> List[Msg]:
         msgs = await self.caller.get_messages(guild_id, time, limit)
         return [Msg(**msg) for msg in msgs]
@@ -105,38 +109,166 @@ class Client(Controller):
     async def get_user(self, user_id: str, /) -> User:
         user = await self.caller.get_user(user_id)
         return User(**user)
+    
+    async def get_user_by_name(self, username: str, /) -> User:
+        user = await self.caller.get_user_by_name(username)
+        return User(**user)
+
+    async def get_bans(self, guild_id: str, /) -> List[User]:
+        users = await self.caller.get_bans(guild_id)
+        return [User(**user) for user in users]
+    
+    async def get_admins(self, guild_id: str, /) -> List[User]:
+        users = await self.caller.get_admins(guild_id)
+        return [User(**user) for user in users]
+
+    async def get_members(self, guild_id: str, /) -> List[User]:
+        users = await self.caller.get_members(guild_id)
+        return [User(**user) for user in users]
 
     async def send_message(self, guild_id: str, message: str, /) -> None:
         await self.caller.send_message(guild_id, message)
 
+    async def start_typing(self, guild_id : str, /) -> None:
+        await self.caller.start_typing(guild_id)
+
+    async def join_guild(self, guild_id: str, /) -> None:
+        await self.caller.join_guild(guild_id)
+    
+    async def leave_guild(self, guild_id: str, /) -> None:
+        await self.caller.leave_guild(guild_id)
+    
+    async def create_guild(self, name: str, save_chat : bool,/) -> None:
+        await self.caller.create_guild(name, save_chat)
+
+    async def edit_guild(self, guild_id: str, name: str, save_chat: bool, /) -> None:
+        await self.caller.edit_guild(guild_id, name, save_chat)
+    
+    async def delete_guild(self, guild_id: str, /) -> None:
+        await self.caller.delete_guild(guild_id)
+    
+    async def create_dm(self, user_id: str, /) -> None:
+        await self.caller.create_dm(user_id)
+    
+    async def delete_dm(self, dm_id: str, /) -> None:
+        await self.caller.delete_dm(dm_id)
+    
+    async def add_friend(self, user_id: str, /) -> None:
+        await self.caller.add_friend(user_id)
+    
+    async def add_friend_by_name(self, username: str, /) -> None:
+        await self.caller.add_friend_by_name(username)
+    
+    async def remove_friend(self, user_id: str, /) -> None:
+        await self.caller.remove_friend(user_id)
+    
+    async def accept_friend_request(self, user_id: str, /) -> None:
+        await self.caller.accept_friend_request(user_id)
+    
+    async def decline_friend_request(self, user_id: str, /) -> None:
+        await self.caller.decline_friend_request(user_id)
+    
+    async def block_user(self, user_id: str, /) -> None:
+        await self.caller.block_user(user_id)
+    
+    async def unblock_user(self, user_id: str, /) -> None:
+        await self.caller.unblock_user(user_id)
+    
+    async def ban_user(self, guild_id: str, user_id: str, /) -> None:
+        await self.caller.ban_user(guild_id, user_id)
+    
+    async def unban_user(self, guild_id: str, user_id: str, /) -> None:
+        await self.caller.unban_user(guild_id, user_id)
+    
+    async def kick_user(self, guild_id: str, user_id: str, /) -> None:
+        await self.caller.kick_user(guild_id, user_id)
+    
+    async def edit_self(self, password : str, /, *, new_password : Optional[str] = None,username: Optional[str] = None, email : Optional[str] = None, options : Optional[int] = None) -> None:
+        await self.caller.edit_self(password, new_password=new_password, username=username, email=email, options=options)
+    
+
+
 
 if __name__ == "__main__":
     api = Client(
-        token="0041f292d006dcce4263de6ad5dc2feb534843e85089d5277dbf08662dcf3bed")
+        token="5e8e815647e5d12b235e32621d46021ed744e3d9723da24a8d2bac6ea60daa44")
+
+    self_data = None
+
+    @api.event
+    async def ready(self: Client):
+        global self_data
+        self_data = await self.get_self()
+        print(self_data)
 
     @api.event
     async def create_guild_message(self: Client, data: Msg):
         print(data.author)
         print(data.author.name)
-        if data.author.name == "testing123":
+        if self_data is not None and self_data.id == data.author.id:
             return
-        if data.content == "ping":
-            print("is ping?")
-            await self.send_message(data.guild_id, "pong")
-        elif data.content == "pong":
-            guild_data = await self.get_guilds()
-            print(guild_data)
-            for guild in guild_data["guilds"]:
-                await self.send_message(guild.id, "respond")
-        elif data.content == "data":
-            user_data = await self.get_user(data.author.id)
-            await self.send_message(data.guild_id, f"doxxed username:{user_data.name}, id: {user_data.id}, image_id: {user_data.image_id}")
-        elif data.content == "raise":
-            raise Exception("test")
-        elif data.content == "last_msg": # repeating bug
-            last_msg = await self.get_messages(data.guild_id, 0, 5)
-            for msg in last_msg:
-                await self.send_message(data.guild_id, f"last msg: {msg.content} by {msg.author.name}")
+        split_content = data.content.split(" ")
+        command, *args = split_content
+        if not command.startswith("!"):
+            return
+        command = command[1:]
+        match command:
+            case "ping":
+                await self.send_message(data.guild_id, "pong")
+            case "pong":
+                guild_data = await self.get_guilds()
+                for guild in guild_data["guilds"]:
+                    await self.send_message(guild.id, "respond")
+            case "data":
+                user_data = await self.get_user(data.author.id)
+                await self.send_message(data.guild_id, f"doxxed username:{user_data.name}, id: {user_data.id}, image_id: {user_data.image_id}")
+            case "raise":
+                raise Exception("test")
+            case "last_msg":
+                last_msg = await self.get_messages(data.guild_id, 0, 5)
+                for msg in last_msg:
+                    await self.send_message(data.guild_id, f"last msg: {msg.content} by {msg.author.name}")
+            case "start_typing":
+                await self.start_typing(data.guild_id)
+            case "join_guild":
+                try:
+                    await self.join_guild(args[0])
+                except Exception as e:
+                    await self.send_message(data.guild_id, f"error: {e}")
+                else:
+                    await self.send_message(data.guild_id, f"joined server with invite link: {args[0]}")
+            case "leave_guild":
+                try:
+                    await self.leave_guild(args[0])
+                except Exception as e:
+                    await self.send_message(data.guild_id, f"error: {e}")
+                else:
+                    await self.send_message(data.guild_id, f"left server with id: {args[0]}")
+            case "create_dm":
+                username = args[0]
+                try:
+                    user = await self.get_user_by_name(username)
+                    await self.create_dm(user.id)
+                except Exception as e:
+                    await self.send_message(data.guild_id, f"error: {e}")
+                else:
+                    await self.send_message(data.guild_id, f"created dm with {username}")
+            case "dm": #hangs for some reason on this
+                username = args[0]
+                message = " ".join(args[1:])
+                dms = await self.get_guilds()
+                dms = dms["dms"]
+                dm_id = None
+                for dm in dms:
+                    if dm.user_info.name == username:
+                        dm_id = dm.id
+                        break
+                try:
+                    await self.send_message(dm_id, message)
+                except Exception as e:
+                    await self.send_message(data.guild_id, f"error: {e}")
+                else:
+                    await self.send_message(data.guild_id, f"sent dm to {username}")
 
 
     api.run()
