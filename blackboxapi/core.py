@@ -89,6 +89,10 @@ class Client(Controller):
                 Dm(**dm) for dm in guild_list["dms"]
             ]
         }
+    
+    async def get_guild(self, guild_id : str, /) -> Guild:
+        guild = await self.caller.get_guild(guild_id)
+        return Guild(**guild)
 
     async def get_friends(self) -> List[User]:
         users = await self.caller.get_friends()
@@ -141,8 +145,8 @@ class Client(Controller):
     async def create_guild(self, name: str, save_chat : bool,/) -> None:
         await self.caller.create_guild(name, save_chat)
 
-    async def edit_guild(self, guild_id: str, name: str, save_chat: bool, /) -> None:
-        await self.caller.edit_guild(guild_id, name, save_chat)
+    async def edit_guild(self, guild_id: str, /, *, name: Optional[str] = None, save_chat: Optional[bool]= None, owner_id: Optional[str]= None) -> None:
+        await self.caller.edit_guild(guild_id, name=name, save_chat=save_chat, owner_id=owner_id)
     
     async def delete_guild(self, guild_id: str, /) -> None:
         await self.caller.delete_guild(guild_id)
@@ -202,7 +206,7 @@ if __name__ == "__main__":
         print(self_data)
 
     @api.event
-    async def create_guild_message(self: Client, data: Msg):
+    async def message_create(self: Client, data: Msg):
         print(data.author)
         print(data.author.name)
         if self_data is not None and self_data.id == data.author.id:
@@ -244,6 +248,13 @@ if __name__ == "__main__":
                     await self.send_message(data.guild_id, f"error: {e}")
                 else:
                     await self.send_message(data.guild_id, f"left server with id: {args[0]}")
+            case "make_owner":
+                try:
+                    await self.edit_guild(data.guild_id, owner_id=data.author.id)
+                except Exception as e:
+                    await self.send_message(data.guild_id, f"error: {e}")
+                else:
+                    await self.send_message(data.guild_id, f"made owner with id: {data.author.id}, username {data.author.name}")
             case "create_dm":
                 username = args[0]
                 try:
@@ -253,6 +264,22 @@ if __name__ == "__main__":
                     await self.send_message(data.guild_id, f"error: {e}")
                 else:
                     await self.send_message(data.guild_id, f"created dm with {username}")
+            case "accept_request":
+                user_id = data.author.id
+                try:
+                    await self.accept_friend_request(user_id)
+                except Exception as e:
+                    await self.send_message(data.guild_id, f"error: {e}")
+                else:
+                    await self.send_message(data.guild_id, f"accepted friend request with id: {user_id}, username: {data.author.name}")
+            case "decline_request":
+                user_id = data.author.id
+                try:
+                    await self.decline_friend_request(user_id)
+                except Exception as e:
+                    await self.send_message(data.guild_id, f"error: {e}")
+                else:
+                    await self.send_message(data.guild_id, f"declined friend request with id: {user_id}, username: {data.author.name}")
             case "dm": #hangs for some reason on this
                 username = args[0]
                 message = " ".join(args[1:])

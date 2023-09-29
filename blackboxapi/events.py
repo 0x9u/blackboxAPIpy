@@ -1,5 +1,5 @@
 class User:
-    def __init__(self, id, name, imageId, email=None, flags=None, options=None, permissions=None):
+    def __init__(self, id, name=None, imageId=None, email=None, flags=None, options=None, permissions=None):
         self.id = id
         self.name = name
         self.image_id = imageId
@@ -10,7 +10,7 @@ class User:
 
 
 class Member:
-    def __init__(self, guildId, admin, owner, userInfo):
+    def __init__(self, admin, owner, userInfo, guildId=None):
         self.guild_id = guildId
         self.admin = admin
         self.owner = owner
@@ -33,9 +33,9 @@ class Attachment:
 
 
 class Msg:
-    def __init__(self, id, author, content, guildId, created, modified, msgSaved, requestId, mentionsEveryone, mentions, attachments):
+    def __init__(self, id, guildId, content,author=None,  created=None, modified=None, msgSaved=None, requestId=None, mentionsEveryone=None, mentions=None, attachments=None):
         self.id = id
-        self.author = User(**author)
+        self.author = User(**author) if author is not None else None
         self.content = content
         self.guild_id = guildId
         self.created = created
@@ -43,7 +43,7 @@ class Msg:
         self.msg_saved = msgSaved
         self.request_id = requestId
         self.mentions_everyone = mentionsEveryone
-        self.mentions = [User(**mention) for mention in mentions]
+        self.mentions = [User(**mention) for mention in mentions] if mentions is not None else None
         self.attachments = [Attachment(**attachment)
                             for attachment in attachments] if attachments is not None else None
 
@@ -56,7 +56,7 @@ class Dm:
 
 
 class Guild:
-    def __init__(self, id, name, imageId, ownerId, dm=None, saveChat=None, unread=None):
+    def __init__(self, id, name=None, imageId=None, ownerId=None, dm=None, saveChat=None, unread=None):
         self.id = id
         self.dm = dm
         self.name = name
@@ -65,6 +65,11 @@ class Guild:
         self.save_chat = saveChat
         self.unread = UnreadMsg(**unread) if unread is not None else None
 
+class Typing:
+    def __init__(self, guildId, userInfo, time):
+        self.guild_id = guildId
+        self.user_info = User(**userInfo)
+        self.time = time
 
 class Invite:
     def __init__(self, guildId, invite):

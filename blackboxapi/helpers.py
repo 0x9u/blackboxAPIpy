@@ -2,7 +2,7 @@ import aiohttp
 import asyncio
 import json
 from typing import List, Dict, Union, Optional, Any
-from events import Guild, Msg, User, Dm
+from events import Guild, Msg, User, Dm, Typing, Invite, Member
 
 ENDPOINT_URL = "localhost:8080/api"
 
@@ -45,18 +45,26 @@ class Controller:
 
     async def _process_event(self, data, event):
         name = "on_"+event.lower()
-        data_type = event.lower().split("_")[-1]
+        data_type = event.lower().split("_")[0]
+        print(data)
         match data_type:
             case "guild":
                 data = Guild(**data)
+            case "invite":
+                data = Invite(**data)
             case "dm":
                 data = Dm(**data)
             case "message":
                 data = Msg(**data)
+            case "member":
+                data = Member(**data)
             case "user":
                 data = User(**data)
+            case "typing":
+                data = Typing(**data)
             case _:
                 print(f"Unknown event type {data_type}")
+                data = None
         try:
             coro = getattr(self, name)
         except AttributeError:
@@ -73,129 +81,115 @@ class Controller:
         """
         pass
 
-    async def on_create_guild(self, data) -> None:
+    async def on_guild_create(self, data : Guild) -> None:
         """
         A function to handle the event when a guild is created.
 
-        This function is called asynchronously and does not take any parameters.
+        This function is called asynchronously and takes one parameter, `data`, which is a `Guild` object
 
         Returns:
             None
         """
         pass
 
-    async def on_delete_guild(self, data) -> None:
+    async def on_guild_delete(self, data : Guild) -> None:
         """
         A function to handle the event when a guild is deleted.
 
-        This function is called asynchronously and does not take any parameters.
+        This function is called asynchronously and takes one parameter, `data`, which is a `Guild` object
 
         Returns:
             None
         """
         pass
-
-    async def on_update_guild(self, data) -> None:
+    
+    async def on_guild_update(self, data: Guild) -> None:
         """
         A function to handle the event when a guild is updated.
 
-        This function is called asynchronously and does not take any parameters.
+        This function is called asynchronously and takes one parameter, `data`, which is a `Guild` object
 
         Returns:
             None
         """
         pass
 
-    async def on_not_owner(self, data) -> None:
+    async def on_guild_delete(self, data : Guild) -> None:
+        """
+        A function to handle the event when a guild is updated.
+
+        This function is called asynchronously and takes one parameter, `data`, which is a `Guild` object
+
+        Returns:
+            None
+        """
         pass
 
-    async def on_new_owner(self, data) -> None:
+    async def on_invite_create(self, data : Invite) -> None:
         pass
 
-    async def on_create_invite(self, data) -> None:
+    async def on_invite_delete(self, data : Invite) -> None:
         pass
 
-    async def on_delete_invite(self, data) -> None:
+    async def on_message_create(self, data : Msg) -> None:
         pass
 
-    async def on_create_guild_message(self, data) -> None:
+    async def on_message_delete(self, data : Msg) -> None:
         pass
 
-    async def on_delete_guild_message(self, data) -> None:
+    async def on_message_update(self, data : Msg) -> None:
         pass
 
-    async def on_update_guild_message(self, data) -> None:
+    async def on_messages_user_clear(self, data : Msg) -> None:
         pass
 
-    async def on_create_dm(self, data) -> None:
+    async def on_messages_guild_clear(self, data : Msg) -> None:
         pass
 
-    async def on_delete_dm(self, data) -> None:
+    async def on_typing_start(self, data : Typing) -> None:
         pass
 
-    async def on_create_dm_message(self, data) -> None:
+    async def on_dm_create(self, data : Dm) -> None:
         pass
 
-    async def on_delete_dm_message(self, data) -> None:
+    async def on_dm_delete(self, data : Dm) -> None:
         pass
 
-    async def on_update_dm_message(self, data) -> None:
+    async def on_user_friend_request_add(self, data : User) -> None:
         pass
 
-    async def on_clear_user_dm_messages(self, data) -> None:
+    async def on_user_friend_request_remove(self, data : User) -> None:
         pass
 
-    async def on_user_dm_typing(self, data) -> None:
+    async def on_user_friend_add(self, data : User) -> None:
         pass
 
-    async def on_add_friend_request(self, data) -> None:
+    async def on_user_friend_remove(self, data: User) -> None:
         pass
 
-    async def on_remove_friend_request(self, data) -> None:
+    async def on_member_add(self, data: Member) -> None:
         pass
 
-    async def on_add_user_friendlist(self, data) -> None:
+    async def on_member_remove(self, data: Member) -> None:
         pass
 
-    async def on_remove_user_friendlist(self, data) -> None:
+    async def on_member_ban_add(self, data: Member):
         pass
 
-    async def on_clear_user_messages(self, data) -> None:
+    async def on_member_ban_remove(self, data: Member) -> None:
         pass
 
-    async def on_clear_guild_messages(self, data) -> None:
+    async def on_member_admin_add(self, data: Member) -> None:
         pass
 
-    async def on_user_typing(self, data) -> None:
+    async def on_member_admin_remove(self, data: Member) -> None:
         pass
 
-    async def on_add_user_guildlist(self, data) -> None:
+    async def on_log_out(self, data : None) -> None:
         pass
 
-    async def on_remove_user_guildlist(self, data) -> None:
+    async def on_user_info_update(self, data: User) -> None:
         pass
-
-    async def on_add_user_banlist(self, data):
-        pass
-
-    async def on_remove_user_banlist(self, data) -> None:
-        pass
-
-    async def on_add_user_guildadmin(self, data) -> None:
-        pass
-
-    async def on_remove_user_guildadmin(self, data) -> None:
-        pass
-
-    async def on_log_out(self, data) -> None:
-        pass
-
-    async def on_update_user_info(self, data) -> None:
-        pass
-
-    async def on_update_self_user_info(self, data) -> None:
-        pass
-
 
 class Caller:
     def __init__(self, token: str) -> None:
@@ -272,12 +266,20 @@ class Caller:
     async def delete_guild(self, guild_id : str, /) -> None:
         await self._request("DELETE", f"/guilds/{guild_id}")
     
-    async def create_guild(self, name : str, save_chat : bool, /) -> Dict[str, Union[str, Dict]]: #support upload image later
+    async def create_guild(self, name : str, save_chat : bool, /) -> None: #support upload image later
         send_data = {
             "name": name,
             "saveChat": save_chat
         }
         await self._request("POST", "/guilds", data=send_data)
+
+    async def edit_guild(self, guild_id : str, /, * , name : Optional[str] = None, save_chat : Optional[bool]= None, owner_id : Optional[str]= None) -> None:
+        send_data = {
+            "name": name,
+            "saveChat": save_chat,
+            "ownerId": owner_id
+        }
+        await self._request("PATCH", f"/guilds/{guild_id}", data=send_data)
 
     async def join_guild(self, invite : str, /) -> None:
         send_data = {
